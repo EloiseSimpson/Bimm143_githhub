@@ -1,0 +1,309 @@
+---
+title: "class13_Volcano"
+format: pdf
+editor: visual
+---
+
+This week we are looking at differential expression analysis.
+
+The data for this hands-on session comes from a published RNA-seq experiment where airway smooth muscle cells were treated with dexamethasone, a synthetic glucocorticoid steroid with anti-inflammatory effects (Himes et al. 2014).
+
+## Import / Read the data from Himes et al.
+
+```{r}
+counts <- read.csv("airway_scaledcounts.csv", row.names=1)
+metadata <- read.csv("airway_metadata.csv")
+```
+
+Let's have a week peak at this data
+```{r}
+head(metadata)
+```
+
+Sanity check on correspondence of counts and metadata.
+
+```{r}
+all(metadata$id == colnames(counts))
+```
+
+>Q1. How many genes are in this dataset? 
+
+There are `r nrow(counts)` genes in this dataset.
+```{r}
+nrow(counts)
+```
+There are 38964 genes
+>Q2. How many ‘control’ cell lines do we have? 
+
+```{r}
+n.control <- sum(metadata$dex == "control")
+```
+There are `r n.control` control cell lines in this dataset
+
+### Extract and summarize the control samples
+
+To find out where the control samples are, we need the metadata
+```{r}
+control <- metadata[metadata$dex == "control",]
+control.counts <- counts[,control$id]
+control.mean <- rowMeans(control.counts)
+head(control.mean)
+```
+>Q3. How would you make the above code in either approach more robust? Is there a function that could help here? 
+
+An approach which verifies that the colnames(counts) are matching up with the metadata$id. Therefore, we must always include this: metadata$dex == "control"
+
+## Extract and summarize the treated (i.e. drug) samples
+
+>Q4. Follow the same procedure for the treated samples (i.e. calculate the mean per gene across drug treated samples and assign to a labeled vector called treated.mean)
+
+```{r}
+treated <- metadata[metadata$dex == "treated",]
+treated.counts <- counts[,treated$id]
+treated.mean <- rowMeans(treated.counts)
+head(treated.mean)
+```
+Store these results together in a new data frame called `meancounts`
+Lets make a plot to explore the results a little
+
+```{r}
+meancounts <- data.frame(control.mean, treated.mean)
+```
+
+Let's makr a plot to explore these results a little
+
+```{r}
+plot(meancounts[,1], meancounts[,2])
+```
+
+```{r}
+library(ggplot2)
+
+ggplot(meancounts) +
+  aes(control.mean, treated.mean) + 
+  geom_point()
+```
+
+We will make a log-log plot to draw out this skewed data and see what is going on.
+
+Q6. Try plotting both axes on a log scale. What is the argument to plot() that allows you to do this? 
+log='xy'
+
+```{r}
+plot(meancounts[,1], meancounts[,2], log='xy',
+     xlab="log control counts",
+     ylab="log of treated counts")
+```
+
+We often use log2 transformations when dealing with this sort of data.
+
+```{r}
+log2(20/20)
+log2(40/20)
+log2(80/20)
+```
+
+This log2 transformation has this nice property where if there is no change the log2 value will be zero and if it double the log2 value will be 1 and if halved it will be -1.
+
+So let's add a log2 fold change column to our results so far
+
+```{r}
+meancounts$log2fc <- (meancounts$treated.mean / 
+                        meancounts$control.mean)
+```
+
+```{r}
+head(meancounts)
+```
+
+We need to get rid of zero count genes that we can not say anything about.
+
+```{r}
+zero.vales <- which(meancounts[,1:2]==0, arr.ind=TRUE)
+to.rm <- unique(zero.vales[,1])
+mycounts <- meancounts[-to.rm, ]
+```
+
+```{r}
+head(mycounts)
+```
+
+Q7. What is the purpose of the arr.ind argument in the which() function call above? Why would we then take the first column of the output and need to call the unique() function?
+It tells you which rows and columns have the zeros
+Unique is needed so that the rows with zeros only apprea once even if they have multiple zeros.
+
+How many genes are remaining?
+```{r}
+nrow(mycounts)
+```
+
+# Use fold change to see up and down regulated genes.
+
+A common threshold used for calling something differentially expressed is a log2(FoldChange) of greater than 2 or less than -2. Let’s filter the dataset both ways to see how many genes are up or down-regulated.
+
+```{r}
+sum(mycounts$log2fc > 2)
+```
+and down regulated
+```{r}
+sum(mycounts$log2fc < 2)
+```
+
+>Q10. Do you trust these results? Why or why not?
+
+Not fully because we don't yet know if these changes are significant...
+
+# DESeq2 analysis
+
+Let’s do this the right way. DESeq2 is an R package specifically for analyzing count-based NGS data like RNA-seq. It is available from Bioconductor. Bioconductor is a project to provide tools for analyzing high-throughput genomic data including RNA-seq, ChIP-seq and arrays. 
+
+```{r}
+library(DESeq2)
+
+dds <- DESeqDataSetFromMatrix(countData=counts, 
+                              colData=metadata, 
+                              design=~dex)
+```
+```{r}
+dds <- DESeq(dds)
+```
+
+```{r}
+res <- results(dds)
+res
+```
+
+We can get some basic summary tallies using the `summary()` function
+
+```{r}
+summary(res, alpha=0.05)
+```
+# Volcano plot
+
+Make a summary plot of our results.
+
+```{r}
+plot(res$log2FoldChange, -log(res$padj))
+```
+
+Finish for today by saving our results
+
+```{r}
+write.csv(res, file="DESeq2_results.csv")
+```
+
+
+
+
+# Add annotation to data
+
+Let's start by mapping our ENSEMBLE ids to the more conventional gene SYMBOL.
+
+We will use two bioconductor packages for this "mapping" **AnnotationDbi** and **org.Hs.eg.db**.
+
+We will firstneed to install these from bioconductor with `BiocManager::install("AnnotationDbi")`
+
+```{r}
+library(AnnotationDbi)
+library(org.Hs.eg.db)
+```
+
+```{r}
+columns(org.Hs.eg.db)
+```
+
+```{r}
+res$symbol <- mapIds(org.Hs.eg.db,
+                      keys = rownames(res), #Our ids
+                      keytype = "ENSEMBL", #Their format
+                      column = "SYMBOL") #What I want to translate to
+```
+
+res\$symbol creates new column named symbol
+
+```{r}
+head(res)
+```
+
+> Q. Can you add "GENENAME" and "ENTREZID" as new column to `res` as "name" and "entrez"?
+
+```{r}
+res$name <- mapIds(org.Hs.eg.db,
+                      keys = rownames(res), 
+                      keytype = "ENSEMBL", 
+                      column = "GENENAME") 
+```
+
+```{r}
+res$entrez <- mapIds(org.Hs.eg.db,
+                      keys = rownames(res),
+                      keytype = "ENSEMBL", 
+                      column = "ENTREZID") 
+```
+
+```{r}
+head(res)
+```
+
+```{r}
+write.csv(res, file = "results_annotated.csv")
+```
+
+## Pathway analysis
+
+Now we know the gene names (gene symbols) and their entrez IDs we can find out what pathways they are involved in. This is called "pathway analysis" or "gene set enrichment".
+
+We will use the **gage** package and the **pathviewer** package to do this analysis (but there are loads of others).
+
+```{r, message=FALSE}
+library(gage)
+library(gageData)
+library(pathview)
+```
+
+Lets' see what is in the gageData, specifically KEGG pathways:
+
+```{r}
+data(kegg.sets.hs)
+head(kegg.sets.hs, 2)
+```
+
+To run our pathway analysis we will use the **gage()** function. It wants two main inputs: a vector of importance (in our case the log2 fold change values); and the gene sets to check overlap for.
+
+```{r}
+foldchanges <- res$log2FoldChange
+names(foldchanges) <- res$symbol
+head(foldchanges)
+```
+
+KEGG speaks entrez (i.e. muses ENTREZID format) not gene symbol format
+
+```{r}
+names(foldchanges) <- res$entrez
+```
+
+```{r}
+keggres = gage(foldchanges, gsets=kegg.sets.hs)
+```
+
+```{r}
+head(keggres$less, 5)
+```
+
+Let's make a figure of one of these pathways with our DEGs highlighted:
+
+```{r}
+pathview(foldchanges, pathway.id = "hsa05310")
+```
+![](hsa05310.png)
+
+> Q. Generate and insert a pathway figure for "Graft-versus-host disease" and "Type I diabetes"?
+
+```{r}
+pathview(foldchanges, pathway.id = "hsa04940")
+```
+![](hsa04940.png)
+```{r}
+pathview(foldchanges, pathway.id = "hsa05332")
+```
+![](hsa05310.png)

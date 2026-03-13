@@ -1,0 +1,218 @@
+---
+title: "class14_miniproject"
+format: pdf
+editor: visual
+---
+
+## Background
+
+The data for today's mini project comes from a knock-down study if an important HOX gene.
+
+## Data Import
+
+read the data then have a wee peak at it:
+
+```{r}
+countData <- read.csv("GSE37704_featurecounts.csv", row.names=1)
+colData <- read.csv("GSE37704_metadata.csv", row.names=1)
+head(countData)
+head(colData)
+```
+
+### Clean up (data tidying)
+
+-1 removes the column
+
+```{r}
+countData <- as.matrix(countData[,-1])
+head(countData)
+```
+
+```{r}
+countData = countData[rowSums(countData) > 0, ]
+head(countData)
+```
+
+## DESeq Analysis
+
+### Setting up the DESeq object
+
+```{r, message=FALSE}
+library(DESeq2)
+citation("DESeq2")
+```
+
+### Runing DESeq
+
+```{r}
+dds = DESeqDataSetFromMatrix(countData=countData,
+                             colData=colData,
+                             design=~condition)
+```
+
+```{r}
+dds = DESeq(dds)
+dds
+```
+
+### Getting results
+
+```{r}
+res = results(dds)
+```
+
+```{r}
+summary(res)
+```
+
+## Volcano Plot
+
+```{r}
+library(ggplot2)
+
+mycols <- rep("pink", nrow(res) )
+mycols[ abs(res$log2FoldChange) > 2 ] <- "green"
+mycols[ res$padj > 0.01 ] <- "lightblue"
+ggplot(res) +
+  aes(res$log2FoldChange, -log(res$padj)) +
+  geom_point(col=mycols)
+```
+
+```{r}
+mycols <- rep("pink", nrow(res) )
+mycols[ abs(res$log2FoldChange) > 2 ] <- "green"
+mycols[ res$padj > 0.01 ] <- "lightblue"
+
+ggplot(res) +
+  aes(res$log2FoldChange, -log(res$padj)) +
+  geom_point(col=mycols) +
+  xlab("Log2(FoldChange)") +
+  ylab("-Log(P-value)") +
+  geom_vline(xintercept = c(-2,2)) +
+  geom_hline(yintercept = -log(0.01), col="blue")
+```
+
+## Add Annotation
+
+```{r}
+library("AnnotationDbi")
+library("org.Hs.eg.db")
+
+columns(org.Hs.eg.db)
+
+res$symbol = mapIds(org.Hs.eg.db,
+                    keys=row.names(res), 
+                    keytype="ENSEMBL",
+                    column="SYMBOL",
+                    multiVals="first")
+head(res)
+```
+
+```{r}
+res$entrez = mapIds(org.Hs.eg.db,
+                    keys=row.names(res),
+                    keytype="ENSEMBL",
+                    column="ENTREZID",
+                    multiVals="first")
+
+res$name =   mapIds(org.Hs.eg.db,
+                    keys=row.names(res),
+                    keytype="ENSEMBL",
+                    column="GENENAME",
+                    multiVals="first")
+
+head(res, 10)
+```
+
+```{r}
+res = res[order(res$pvalue),]
+write.csv(res, file = "deseq_results.csv")
+head(res)
+```
+
+## Pathway Analysis
+
+### KEGG
+
+```{r}
+library(pathview)
+library(gage)
+library(gageData)
+
+data(kegg.sets.hs)
+data(sigmet.idx.hs)
+
+kegg.sets.hs = kegg.sets.hs[sigmet.idx.hs]
+
+head(kegg.sets.hs, 3)
+```
+
+```{r}
+foldchanges = res$log2FoldChange
+names(foldchanges) = res$entrez
+head(foldchanges)
+```
+
+```{r}
+keggres = gage(foldchanges, gsets=kegg.sets.hs)
+```
+
+```{r}
+ attributes(keggres)
+```
+
+```{r}
+head(keggres$less)
+```
+
+```{r}
+pathview(gene.data=foldchanges, pathway.id="hsa04110")
+```
+
+```{r}
+pathview(gene.data=foldchanges, pathway.id="hsa04110", kegg.native=FALSE)
+
+```
+
+```{r}
+keggrespathways <- rownames(keggres$greater)[1:5]
+
+keggresids = substr(keggrespathways, start=1, stop=8)
+keggresids
+```
+
+```{r}
+pathview(gene.data=foldchanges, pathway.id=keggresids, species="hsa")
+```
+
+### GO
+
+```{r}
+data(go.sets.hs)
+data(go.subs.hs)
+
+gobpsets = go.sets.hs[go.subs.hs$BP]
+
+gobpres = gage(foldchanges, gsets=gobpsets)
+
+lapply(gobpres, head)
+```
+
+### Reactome
+
+```{r}
+sig_genes <- res[res$padj <= 0.05 & !is.na(res$padj), "symbol"]
+print(paste("Total number of significant genes:", length(sig_genes)))
+```
+
+```{r}
+write.table(sig_genes, file="significant_genes.txt", row.names=FALSE, col.names=FALSE, quote=FALSE)
+```
+
+> Q. What pathway has the most significant “Entities p-value”? 
+
+Response of EIF2AK4 to amino acid deficiency
+
+> Q. Do the most significant pathways listed match your previous KEGG results? What factors could cause differences between the two methods?
+
+Yes, the cell cycle aligns with meiosis and KEGG but the others do not align as well. The factors which could cause differences between the two methods are the fact that reactosome has more pathways that KEGG which would effect the mapping and hence the results.
