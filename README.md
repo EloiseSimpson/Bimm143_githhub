@@ -13,8 +13,6 @@ Class 10 [structure](Class10_structure/Class10_structural.md)
 
 Class 11 [alphafold2](Class11_alphafold2/class11_alphafold2.md)
 
-Class 12 [online](Class12_online/Class12_online.Rmd)
-
 Class 13 [volcano](Class13_missedfiles/Class13_missed.md)
 
 Class 14 [Miniproject](class14_miniproject./class14_miniproject.md)
