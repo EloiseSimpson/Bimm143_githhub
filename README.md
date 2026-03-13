@@ -7,15 +7,15 @@ My classwork from [BIMM143](https://bioboot.github.io/bimm143_W26/class-material
   
 Class 08 [Miniproject](class08_Miniproject/class08_miniproject.md)
 
-Class 09 [Candyproject](class09_candyproject/Class09_candyproject.md)
+Class 09 [Candyproject](class09_candyproject/Untitled.md)
 
 Class 10 [structure](Class10_structure/Class10_structural.md)
 
 Class 11 [alphafold2](Class11_alphafold2/class11_alphafold2.md)
 
-Class 12 [online](Class12_online/Class12_online.md)
+Class 12 [online](Class12_online/Class12_online.Rmd)
 
-Class 13 [volcano](Class13_missedfiles/Class13_volcano.md)
+Class 13 [volcano](Class13_missedfiles/Class13_missed.md)
 
 Class 14 [Miniproject](class14_miniproject./class14_miniproject.md)
 
