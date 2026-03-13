@@ -7,7 +7,7 @@ My classwork from [BIMM143](https://bioboot.github.io/bimm143_W26/class-material
   
 Class 08 [Miniproject](class08_Miniproject/class08_miniproject.md)
 
-Class 09 [Candyproject](class09_candyproject/Untitled.md)
+Class 09 [Candyproject](class09_candyproject/Class09_candyproject.md)
 
 Class 10 [structure](Class10_structure/Class10_structural.md)
 
@@ -23,4 +23,4 @@ Class 16 [Directory](Class16_directory/class17_PCA.md)
 
 Class 18 [pertussis](Class18_pertussis/Class18_pertussis.md)
 
-Class 19 [CancerMiniProject](class19_i.m.p.cancer/lab19.md)
+Class 19 [CancerMiniProject](class19_i.m.p.cancer/Untitled.md)
