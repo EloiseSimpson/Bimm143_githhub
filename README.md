@@ -3,9 +3,8 @@ My classwork from [BIMM143](https://bioboot.github.io/bimm143_W26/class-material
 
 ## Index of Material
 
-* Introductory classes
-
+*Introductory classes*
+  
 Class 08 [Miniproject](class08_Miniproject/class08_miniproject.pdf)
 *  R fundamentals
 
-Class 05
